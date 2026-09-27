@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Raíz Común — Huertas Urbanas Colaborativas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Radios ocultos que controlan la navegación (solo HTML + CSS, sin JS) -->
+<input type="radio" name="pantalla" id="r-registro" class="screen-radio" checked>
+<input type="radio" name="pantalla" id="r-huertas" class="screen-radio">
+<input type="radio" name="pantalla" id="r-calendario" class="screen-radio">
+<input type="radio" name="pantalla" id="r-actividades" class="screen-radio">
+<input type="radio" name="pantalla" id="r-foro" class="screen-radio">
+<input type="radio" name="pantalla" id="r-biblioteca" class="screen-radio">
+<input type="radio" name="pantalla" id="r-admin" class="screen-radio">
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">Raíz<span>·</span>Común</div>
+    <div class="brand-sub">Huertas urbanas colaborativas — soberanía alimentaria, sostenibilidad y educación</div>
+
+    <label class="nav-item" for="r-registro"><span class="nav-dot"></span>Registro de usuarios</label>
+    <label class="nav-item" for="r-huertas"><span class="nav-dot"></span>Huertas comunitarias</label>
+    <label class="nav-item" for="r-calendario"><span class="nav-dot"></span>Calendario</label>
+    <label class="nav-item" for="r-actividades"><span class="nav-dot"></span>Registro de actividades</label>
+    <label class="nav-item" for="r-foro"><span class="nav-dot"></span>Foro</label>
+    <label class="nav-item" for="r-biblioteca"><span class="nav-dot"></span>Biblioteca de guías</label>
+    <label class="nav-item" for="r-admin"><span class="nav-dot"></span>Panel administrativo</label>
+
+    <div class="sidebar-foot">Mockup navegable · MVP<br>7 pantallas del producto</div>
+  </div>
+
+  <div class="main">
+
+    <!-- ============ REGISTRO ============ -->
+    <div class="screen" id="screen-registro">
+      <div class="screen-head">
+        <div>
+          <h1>Únete a una huerta</h1>
+          <p>Regístrate como vecino, coordinador de huerta u organización aliada.</p>
+        </div>
+      </div>
+      <div class="auth-wrap">
+        <div class="seed-card">
+          <span class="seed-tag">Nueva cuenta</span>
+          <div class="auth-toggle">
+            <div class="active">Crear cuenta</div>
+            <div>Iniciar sesión</div>
+          </div>
+          <div class="field">
+            <label>Nombre completo</label>
+            <input type="text" placeholder="Ej. Camila Rodríguez">
+          </div>
+          <div class="field">
+            <label>Correo electrónico</label>
+            <input type="email" placeholder="camila@correo.com">
+          </div>
+          <div class="field">
+            <label>Barrio / localidad</label>
+            <input type="text" placeholder="Ej. Suba, Bogotá">
+          </div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" placeholder="••••••••">
+          </div>
+          <div class="field">
+            <label>¿Cómo quieres participar?</label>
+            <div class="role-pick">
+              <label><input type="radio" name="rol" checked><span>Vecino/a</span></label>
+              <label><input type="radio" name="rol"><span>Coordinador/a</span></label>
+              <label><input type="radio" name="rol"><span>Organización</span></label>
+            </div>
+          </div>
+          <button class="btn btn-solid" style="width:100%; padding:12px;">Crear mi cuenta</button>
+        </div>
+        <div class="auth-side">
+          <h2>Cultivar en comunidad,<br>cosechar en red.</h2>
+          <ul>
+            <li>Encuentra huertas activas cerca de tu barrio.</li>
+            <li>Coordina siembra y cosecha con tu comunidad.</li>
+            <li>Aprende con guías prácticas de cultivo urbano.</li>
+            <li>Comparte dudas y experiencias en el foro.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HUERTAS ============ -->
+    <div class="screen" id="screen-huertas">
+      <div class="screen-head">
+        <div>
+          <h1>Huertas comunitarias</h1>
+          <p>Explora las huertas activas en tu ciudad o crea una nueva para tu barrio.</p>
+        </div>
+        <button class="btn btn-solid">+ Crear huerta</button>
+      </div>
+      <div class="huertas-grid">
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#4E6B3E,#38502C);">Huerta El Jardín de Todos</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Suba, Bogotá · 18 integrantes<br>🌱 Fundada en marzo 2025</div>
+            <div class="tag-row"><span class="tag">Hortalizas</span><span class="tag">Compostaje</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#B84E2A,#8A3A1F);">Huerta Semillas del Sur</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Ciudad Bolívar, Bogotá · 9 integrantes<br>🌱 Fundada en junio 2025</div>
+            <div class="tag-row"><span class="tag">Aromáticas</span><span class="tag">Escolar</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#E0A63C,#B9822A);">Terraza Verde Chapinero</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Chapinero, Bogotá · 12 integrantes<br>🌱 Fundada en enero 2026</div>
+            <div class="tag-row"><span class="tag">Techos verdes</span><span class="tag">Frutales</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="new-huerta-card">
+          <div class="plus">+</div>
+          Registrar una nueva huerta
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CALENDARIO ============ -->
+    <div class="screen" id="screen-calendario">
+      <div class="screen-head">
+        <div>
+          <h1>Calendario de siembra y cosecha</h1>
+          <p>Marzo 2026 · Huerta El Jardín de Todos</p>
+        </div>
+        <button class="btn btn-solid">+ Nuevo evento</button>
+      </div>
+      <div class="cal-layout">
+        <div class="cal-grid">
+          <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">M</div><div class="cal-dow">J</div><div class="cal-dow">V</div><div class="cal-dow">S</div><div class="cal-dow">D</div>
+          <div class="cal-cell"><div class="num">1</div></div>
+          <div class="cal-cell"><div class="num">2</div><div class="cal-evt evt-siembra">Siembra lechuga</div></div>
+          <div class="cal-cell"><div class="num">3</div></div>
+          <div class="cal-cell"><div class="num">4</div></div>
+          <div class="cal-cell"><div class="num">5</div><div class="cal-evt evt-siembra">Siembra cilantro</div></div>
+          <div class="cal-cell"><div class="num">6</div></div>
+          <div class="cal-cell"><div class="num">7</div></div>
+          <div class="cal-cell"><div class="num">8</div></div>
+          <div class="cal-cell"><div class="num">9</div></div>
+          <div class="cal-cell"><div class="num">10</div></div>
+          <div class="cal-cell"><div class="num">11</div><div class="cal-evt evt-cosecha">Cosecha rábano</div></div>
+          <div class="cal-cell"><div class="num">12</div></div>
+          <div class="cal-cell"><div class="num">13</div></div>
+          <div class="cal-cell"><div class="num">14</div></div>
+          <div class="cal-cell"><div class="num">15</div></div>
+          <div class="cal-cell"><div class="num">16</div></div>
+          <div class="cal-cell"><div class="num">17</div></div>
+          <div class="cal-cell"><div class="num">18</div><div class="cal-evt evt-cosecha">Cosecha acelga</div></div>
+          <div class="cal-cell"><div class="num">19</div></div>
+          <div class="cal-cell"><div class="num">20</div></div>
+          <div class="cal-cell"><div class="num">21</div></div>
+        </div>
+        <div class="cal-side">
+          <div class="legend">
+            <span><i style="background:var(--leaf)"></i>Siembra</span>
+            <span><i style="background:var(--tomato)"></i>Cosecha</span>
+          </div>
+          <h3>Próximos eventos</h3>
+          <div class="upcoming"><b>Siembra de cilantro</b>5 de marzo · Lote B</div>
+          <div class="upcoming"><b>Cosecha de rábano</b>11 de marzo · Lote A</div>
+          <div class="upcoming"><b>Cosecha de acelga</b>18 de marzo · Lote C</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ACTIVIDADES ============ -->
+    <div class="screen" id="screen-actividades">
+      <div class="screen-head">
+        <div>
+          <h1>Registro de actividades</h1>
+          <p>Documenta el trabajo hecho en la huerta para llevar la memoria del proceso.</p>
+        </div>
+      </div>
+      <div class="act-form">
+        <div class="act-form-row">
+          <div class="field">
+            <label>Tipo de actividad</label>
+            <select><option>Riego</option><option>Siembra</option><option>Cosecha</option><option>Compostaje</option><option>Mantenimiento</option></select>
+          </div>
+          <div class="field">
+            <label>Fecha</label>
+            <input type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label>Descripción</label>
+          <textarea rows="2" placeholder="Ej. Se regaron los lotes A y B, se removió maleza en el lote C..."></textarea>
+        </div>
+        <button class="btn btn-solid">Registrar actividad</button>
+      </div>
+
+      <div class="feed">
+        <div class="feed-item">
+          <div class="feed-avatar">CR</div>
+          <div>
+            <b>Camila Rodríguez</b> registró una <b>siembra</b>
+            <div class="feed-time">Hoy, 9:40 a.m. · Huerta El Jardín de Todos</div>
+            <div class="feed-desc">Se sembraron 40 plántulas de lechuga y cilantro en el lote B.</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="feed-avatar">JT</div>
+          <div>
+            <b>Jorge Torres</b> registró <b>mantenimiento</b>
+            <div class="feed-time">Ayer, 4:15 p.m.</div>
+            <div class="feed-desc">Reparación del sistema de riego por goteo del lote A.</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="feed-avatar">ML</div>
+          <div>
+            <b>Marta Lozano</b> registró <b>cosecha</b>
+            <div class="feed-time">Lunes, 8:00 a.m.</div>
+            <div class="feed-desc">Se cosecharon 6 kg de acelga, repartidos entre los participantes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FORO ============ -->
+    <div class="screen" id="screen-foro">
+      <div class="screen-head">
+        <div>
+          <h1>Foro de la comunidad</h1>
+          <p>Preguntas, consejos y experiencias entre huerteros.</p>
+        </div>
+        <button class="btn btn-solid">+ Nuevo tema</button>
+      </div>
+      <div class="forum-list">
+        <div class="thread">
+          <div>
+            <div class="thread-title">¿Qué hacer contra el pulgón sin usar químicos?</div>
+            <div class="thread-meta">Iniciado por Marta Lozano · Huerta El Jardín de Todos</div>
+          </div>
+          <div class="thread-stats"><b>12</b>respuestas</div>
+        </div>
+        <div class="thread">
+          <div>
+            <div class="thread-title">Intercambio de semillas de tomate cherry</div>
+            <div class="thread-meta">Iniciado por Jorge Torres · Terraza Verde Chapinero</div>
+          </div>
+          <div class="thread-stats"><b>5</b>respuestas</div>
+        </div>
+        <div class="thread">
+          <div>
+            <div class="thread-title">Turnos de riego para este fin de semana</div>
+            <div class="thread-meta">Iniciado por Camila Rodríguez · Huerta El Jardín de Todos</div>
+          </div>
+          <div class="thread-stats"><b>3</b>respuestas</div>
+        </div>
+      </div>
+
+      <div style="margin-top:30px; padding-top:20px; border-top:1.5px solid var(--line);">
+        <h3 style="margin-bottom:14px;">¿Qué hacer contra el pulgón sin usar químicos?</h3>
+        <div class="reply"><b>Marta Lozano</b><p>Llevo dos semanas viendo pulgón en las plantas de acelga del lote C, ¿alguna receta casera que funcione?</p></div>
+        <div class="reply"><b>Jorge Torres</b><p>A mí me ha funcionado el jabón potásico diluido, rociado cada tres días por la tarde.</p></div>
+        <div class="reply"><b>Camila Rodríguez</b><p>También sirve sembrar caléndula cerca, ayuda a alejar varias plagas.</p></div>
+      </div>
+    </div>
+
+    <!-- ============ BIBLIOTECA ============ -->
+    <div class="screen" id="screen-biblioteca">
+      <div class="screen-head">
+        <div>
+          <h1>Biblioteca de guías</h1>
+          <p>Material práctico para aprender y enseñar cultivo urbano.</p>
+        </div>
+      </div>
+      <div class="lib-filters">
+        <div class="chip active">Todas</div>
+        <div class="chip">Siembra</div>
+        <div class="chip">Compostaje</div>
+        <div class="chip">Plagas naturales</div>
+        <div class="chip">Diseño de huerta</div>
+      </div>
+      <div class="guide-grid">
+        <div class="guide-card"><div class="guide-icon">🌱</div><h3>Cómo empezar un semillero</h3><p>Paso a paso para germinar en espacios pequeños.</p></div>
+        <div class="guide-card"><div class="guide-icon">♻️</div><h3>Compostaje casero en balde</h3><p>Convierte residuos de cocina en abono en 6 semanas.</p></div>
+        <div class="guide-card"><div class="guide-icon">🐞</div><h3>Control natural de plagas</h3><p>Recetas caseras y plantas repelentes.</p></div>
+        <div class="guide-card"><div class="guide-icon">📐</div><h3>Diseñar tu huerta en camas</h3><p>Aprovecha espacios reducidos con camas elevadas.</p></div>
+        <div class="guide-card"><div class="guide-icon">💧</div><h3>Riego eficiente por goteo</h3><p>Arma un sistema simple con materiales reciclados.</p></div>
+        <div class="guide-card"><div class="guide-icon">🌾</div><h3>Calendario de siembra en Bogotá</h3><p>Qué sembrar según la temporada y la altura.</p></div>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN ============ -->
+    <div class="screen" id="screen-admin">
+      <div class="screen-head">
+        <div>
+          <h1>Panel administrativo</h1>
+          <p>Gestiona usuarios y huertas: edita, agrega o elimina registros directamente en la tabla.</p>
+        </div>
+      </div>
+      <div class="admin-tabs">
+        <div class="admin-tab active" data-admin="usuarios">Usuarios</div>
+        <div class="admin-tab" data-admin="huertas">Huertas</div>
+      </div>
+
+      <!-- USUARIOS -->
+      <div class="admin-panel" id="admin-usuarios">
+        <div class="admin-toolbar">
+          <span style="font-size:12.5px; color:var(--soil-light);">3 usuarios registrados</span>
+          <button class="btn btn-solid btn-sm" onclick="addUserRow()">+ Agregar usuario</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Huerta</th><th></th></tr>
+          </thead>
+          <tbody id="user-table-body">
+            <tr>
+              <td><input value="Camila Rodríguez" disabled></td>
+              <td><input value="camila@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option selected>Coordinadora</option><option>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-activo">Activo</span></td>
+              <td><input value="El Jardín de Todos" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Jorge Torres" disabled></td>
+              <td><input value="jorge@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option>Coordinadora</option><option selected>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-activo">Activo</span></td>
+              <td><input value="Terraza Verde Chapinero" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Marta Lozano" disabled></td>
+              <td><input value="marta@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option>Coordinadora</option><option selected>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-pendiente">Pendiente</span></td>
+              <td><input value="Semillas del Sur" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- HUERTAS ADMIN -->
+      <div class="admin-panel" id="admin-huertas" style="display:none;">
+        <div class="admin-toolbar">
+          <span style="font-size:12.5px; color:var(--soil-light);">3 huertas registradas</span>
+          <button class="btn btn-solid btn-sm" onclick="addHuertaRow()">+ Agregar huerta</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Localidad</th><th>Integrantes</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="huerta-table-body">
+            <tr>
+              <td><input value="El Jardín de Todos" disabled></td>
+              <td><input value="Suba, Bogotá" disabled></td>
+              <td><input value="18" disabled></td>
+              <td><span class="badge badge-activo">Activa</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Semillas del Sur" disabled></td>
+              <td><input value="Ciudad Bolívar, Bogotá" disabled></td>
+              <td><input value="9" disabled></td>
+              <td><span class="badge badge-activo">Activa</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Terraza Verde Chapinero" disabled></td>
+              <td><input value="Chapinero, Bogotá" disabled></td>
+              <td><input value="12" disabled></td>
+              <td><span class="badge badge-pendiente">En revisión</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast">Cambios guardados</div>
+
+</body>
+</html>
