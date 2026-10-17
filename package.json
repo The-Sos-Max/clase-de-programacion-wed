@@ -1,0 +1,29 @@
+{
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "mongodb": "^7.7.0",
+    "mongoose": "^9.11.2"
+  },
+  "name": "clase-de-programacion-wed",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch src/app.js",
+    "seed": "node src/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Sos-Max/clase-de-programacion-wed.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/The-Sos-Max/clase-de-programacion-wed/issues"
+  },
+  "homepage": "https://github.com/The-Sos-Max/clase-de-programacion-wed#readme"
+}
