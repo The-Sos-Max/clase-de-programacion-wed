@@ -8,6 +8,8 @@ const app = express();
 
 // Middleware: permite leer el cuerpo de las peticiones en formato JSON
 app.use(express.json());
+app.use(express.static("frontend"));
+app.use(express.static("public"));
 
 // Ruta de prueba
 app.get("/", (req, res) => {

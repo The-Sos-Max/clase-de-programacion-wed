@@ -11,8 +11,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch src/app.js",
-    "seed": "node src/seed.js"
+    "dev": "node --watch backend/src/app.js",
+    "seed": "node backend/src/seed.js"
   },
   "repository": {
     "type": "git",
