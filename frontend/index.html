@@ -22,6 +22,14 @@
 
       <form id="form-filtros" class="filtros">
         <label>
+                Buscar por título
+  <input
+    type="text"
+    id="filtro-titulo"
+    placeholder="Ej. Batman, Watchmen..."
+  >
+</label>
+        <label>
           Autor
           <select id="filtro-autor"></select>
         </label>
@@ -37,6 +45,17 @@
 
       <p id="contador" class="contador"></p>
       <div id="lista-comics" class="grid-comics"></div>
+      <div class="paginacion">
+  <button type="button" id="btn-anterior" class="secundario">
+    Anterior
+  </button>
+
+  <span id="pagina-actual">Página 1</span>
+
+  <button type="button" id="btn-siguiente">
+    Siguiente
+  </button>
+</div>
     </section>
 
     <!-- ========== AGREGAR ========== -->
@@ -81,7 +100,7 @@
           </label>
           <label>
             Precio (COP) *
-            <input type="number" name="precio" min="0" step="1" required>
+            <input type="number" name="precio" min="1" step="1" required>
           </label>
           <label>
             Stock

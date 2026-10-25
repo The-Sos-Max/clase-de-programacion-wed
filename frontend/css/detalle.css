@@ -1,0 +1,45 @@
+.volver {
+  color: var(--color-primario);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.volver:hover {
+  text-decoration: underline;
+}
+
+.detalle h2 {
+  margin-bottom: 0.25rem;
+  font-size: 1.8rem;
+}
+
+.detalle-autor {
+  margin: 0 0 1.5rem;
+  color: var(--color-suave);
+  font-size: 1.1rem;
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+
+.datos dt {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-suave);
+}
+
+.datos dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+}
+
+.datos dd.precio {
+  font-weight: 700;
+  color: var(--color-primario);
+}

@@ -1,4 +1,11 @@
-import { listarAutores, crearAutor, listarComics, crearComic } from "./api.js";
+import {
+  listarAutores,
+  crearAutor,
+  listarComics,
+  crearComic,
+  actualizarComic,
+  eliminarComic
+} from "./api.js";
 
 // ============================================================
 // 1. Referencias al DOM
@@ -6,9 +13,13 @@ import { listarAutores, crearAutor, listarComics, crearComic } from "./api.js";
 const $ = (id) => document.getElementById(id);
 
 const formFiltros = $("form-filtros");
+const filtroTitulo = $("filtro-titulo");
 const filtroAutor = $("filtro-autor");
 const filtroEditorial = $("filtro-editorial");
 const btnLimpiar = $("btn-limpiar");
+const btnAnterior = $("btn-anterior");
+const btnSiguiente = $("btn-siguiente");
+const paginaActual = $("pagina-actual");
 const contador = $("contador");
 const listaComics = $("lista-comics");
 const mensaje = $("mensaje");
@@ -17,8 +28,13 @@ const formComic = $("form-comic");
 const comicAutor = $("comic-autor");
 
 // ============================================================
-// 2. Utilidades
+// 2. Estado y utilidades
 // ============================================================
+
+// Paginación
+let pagina = 1;
+const comicsPorPagina = 4;
+let totalComics = 0;
 
 // Crea un elemento con texto. Usa textContent (no innerHTML) para evitar XSS
 function crearElemento(etiqueta, texto, clase) {
@@ -47,6 +63,37 @@ function limpiarVacios(objeto) {
     Object.entries(objeto).filter(([, valor]) => valor !== "")
   );
 }
+// Valida los datos del formulario de cómic.
+// Devuelve un texto con el error, o null si todo está bien
+function validarComic(datos) {
+  const anioActual = new Date().getFullYear();
+
+  if (!datos.titulo) {
+    return "El título no puede estar vacío";
+  }
+  if (!datos.autor) {
+    return "Debes seleccionar un autor";
+  }
+  if (!Number.isFinite(datos.precio) || datos.precio <= 0) {
+    return "El precio debe ser mayor que cero";
+  }
+  if (
+    datos.anioPublicacion !== undefined &&
+    (!Number.isInteger(datos.anioPublicacion) ||
+      datos.anioPublicacion < 1900 ||
+      datos.anioPublicacion > anioActual)
+  ) {
+    return `El año debe estar entre 1900 y ${anioActual}`;
+  }
+  if (
+    datos.stock !== undefined &&
+    (!Number.isInteger(datos.stock) || datos.stock < 0)
+  ) {
+    return "El stock debe ser un número entero mayor o igual a cero";
+  }
+
+  return null;
+}
 
 // Formatea números como pesos colombianos: 65000 → $ 65.000
 const formatoPeso = new Intl.NumberFormat("es-CO", {
@@ -72,17 +119,35 @@ function llenarSelect(select, opciones, textoInicial) {
 function renderComics(comics) {
   listaComics.replaceChildren();
 
-  contador.textContent =
-    comics.length === 1 ? "1 cómic encontrado" : `${comics.length} cómics encontrados`;
+  totalComics = comics.length;
 
-  if (comics.length === 0) {
+  const totalPaginas = Math.max(1, Math.ceil(totalComics / comicsPorPagina));
+
+  if (pagina > totalPaginas) {
+    pagina = totalPaginas;
+  }
+
+  contador.textContent =
+    totalComics === 1
+      ? "1 cómic encontrado"
+      : `${totalComics} cómics encontrados`;
+
+  paginaActual.textContent = `Página ${pagina} de ${totalPaginas}`;
+
+  btnAnterior.disabled = pagina === 1;
+  btnSiguiente.disabled = pagina === totalPaginas;
+
+  if (totalComics === 0) {
     listaComics.append(
       crearElemento("p", "No se encontraron cómics con ese filtro.", "vacio")
     );
     return;
   }
 
-  comics.forEach((comic) => {
+  const inicio = (pagina - 1) * comicsPorPagina;
+  const comicsPagina = comics.slice(inicio, inicio + comicsPorPagina);
+
+  comicsPagina.forEach((comic) => {
     const tarjeta = document.createElement("article");
     tarjeta.className = "comic";
 
@@ -97,6 +162,29 @@ function renderComics(comics) {
       crearElemento("p", `Stock: ${comic.stock}`)
     );
 
+    // Botón para editar
+    const btnEditar = crearElemento("button", "Editar");
+    btnEditar.type = "button";
+    btnEditar.addEventListener("click", () => editarComic(comic));
+
+    // Botón para eliminar
+    const btnEliminar = crearElemento("button", "Eliminar");
+    btnEliminar.type = "button";
+    btnEliminar.className = "secundario";
+    btnEliminar.addEventListener("click", () => borrarComic(comic));
+
+    // Contenedor de los botones
+    const acciones = document.createElement("div");
+    acciones.className = "acciones";
+    acciones.append(btnEditar, btnEliminar);
+    // Enlace a la página de detalle
+const enlaceDetalle = document.createElement("a");
+enlaceDetalle.href = `detalle.html?id=${comic._id}`;
+enlaceDetalle.textContent = "Ver detalle";
+enlaceDetalle.className = "boton-enlace";
+acciones.prepend(enlaceDetalle);
+
+    tarjeta.append(acciones);
     listaComics.append(tarjeta);
   });
 }
@@ -126,34 +214,133 @@ async function cargarEditoriales() {
   );
 }
 
-// Consulta los cómics aplicando los filtros elegidos y los dibuja
-async function buscar() {
+// Consulta los cómics aplicando los filtros elegidos y los dibuja.
+// reiniciarPagina = false se usa al paginar, editar o eliminar
+async function buscar(reiniciarPagina = true) {
+  if (reiniciarPagina) pagina = 1;
+
   const comics = await listarComics({
+    titulo: filtroTitulo.value.trim(),
     autor: filtroAutor.value,
     editorial: filtroEditorial.value
   });
+
   renderComics(comics);
 }
 
 // ============================================================
-// 5. Eventos
+// 5. Editar y eliminar
+// ============================================================
+async function editarComic(comic) {
+  const titulo = prompt("Nuevo título:", comic.titulo);
+  if (titulo === null) return;
+
+  const precioTexto = prompt("Nuevo precio:", comic.precio);
+  if (precioTexto === null) return;
+
+  const editorial = prompt("Nueva editorial:", comic.editorial || "");
+  if (editorial === null) return;
+
+  const stockTexto = prompt("Nuevo stock:", comic.stock);
+  if (stockTexto === null) return;
+
+  const precio = Number(precioTexto);
+  const stock = Number(stockTexto);
+
+  if (
+    !titulo.trim() ||
+    precioTexto.trim() === "" ||
+    !Number.isFinite(precio) ||
+    precio <= 0 ||
+    stockTexto.trim() === "" ||
+    !Number.isInteger(stock) ||
+    stock < 0
+  ) {
+    mostrarMensaje(
+      "Verifica el título, el precio (mayor que cero) y el stock.",
+      "error"
+    );
+    return;
+  }
+
+  try {
+    await actualizarComic(comic._id, {
+      titulo: titulo.trim(),
+      precio,
+      editorial: editorial.trim(),
+      stock
+    });
+
+    mostrarMensaje(`Cómic "${titulo.trim()}" actualizado correctamente`);
+    await Promise.all([cargarEditoriales(), buscar(false)]);
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+async function borrarComic(comic) {
+  const confirmar = confirm(`¿Seguro que deseas eliminar "${comic.titulo}"?`);
+  if (!confirmar) return;
+
+  try {
+    await eliminarComic(comic._id);
+
+    mostrarMensaje(`Cómic "${comic.titulo}" eliminado correctamente`);
+    await Promise.all([cargarEditoriales(), buscar(false)]);
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+// ============================================================
+// 6. Eventos
 // ============================================================
 
-// --- Filtrar ---
-formFiltros.addEventListener("submit", async (evento) => {
-  evento.preventDefault(); // evita que el navegador recargue la página
+// Función reutilizable: busca y muestra el error si algo falla
+async function buscarAutomaticamente() {
   try {
     await buscar();
   } catch (error) {
     mostrarMensaje(error.message, "error");
   }
+}
+
+// --- Filtrar con el botón Buscar ---
+formFiltros.addEventListener("submit", (evento) => {
+  evento.preventDefault(); // evita que el navegador recargue la página
+  buscarAutomaticamente();
 });
 
-btnLimpiar.addEventListener("click", async () => {
+// --- Filtrar automáticamente al cambiar un <select> ---
+filtroAutor.addEventListener("change", buscarAutomaticamente);
+filtroEditorial.addEventListener("change", buscarAutomaticamente);
+
+// --- Limpiar filtros ---
+btnLimpiar.addEventListener("click", () => {
   formFiltros.reset();
+  buscarAutomaticamente();
+});
+
+// --- Paginación: página anterior ---
+btnAnterior.addEventListener("click", async () => {
+  if (pagina > 1) {
+    pagina--;
+    try {
+      await buscar(false);
+    } catch (error) {
+      pagina++;
+      mostrarMensaje(error.message, "error");
+    }
+  }
+});
+
+// --- Paginación: página siguiente ---
+btnSiguiente.addEventListener("click", async () => {
+  pagina++;
   try {
-    await buscar();
+    await buscar(false);
   } catch (error) {
+    pagina--;
     mostrarMensaje(error.message, "error");
   }
 });
@@ -181,23 +368,31 @@ formComic.addEventListener("submit", async (evento) => {
   try {
     const datos = limpiarVacios(Object.fromEntries(new FormData(formComic)));
 
-    // FormData entrega todo como texto: convertimos los campos numéricos
+    // FormData entrega todo como texto: limpiamos y convertimos
+    datos.titulo = datos.titulo?.trim();
     datos.precio = Number(datos.precio);
     if (datos.anioPublicacion) datos.anioPublicacion = Number(datos.anioPublicacion);
     if (datos.stock) datos.stock = Number(datos.stock);
+
+    // Validamos antes de enviar a la API
+    const errorValidacion = validarComic(datos);
+    if (errorValidacion) {
+      mostrarMensaje(errorValidacion, "error");
+      return;
+    }
 
     const comic = await crearComic(datos);
 
     mostrarMensaje(`Cómic "${comic.titulo}" guardado correctamente`);
     formComic.reset();
-    await Promise.all([cargarEditoriales(), buscar()]); // refresca filtros y lista
+    await Promise.all([cargarEditoriales(), buscar()]);
   } catch (error) {
     mostrarMensaje(error.message, "error");
   }
 });
 
 // ============================================================
-// 6. Arranque
+// 7. Arranque
 // ============================================================
 async function iniciar() {
   try {

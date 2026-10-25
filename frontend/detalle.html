@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detalle del cómic · Tienda de Cómics</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/detalle.css">
+</head>
+<body>
+  <header class="encabezado">
+    <h1>🦸 Tienda de Cómics</h1>
+    <p>Detalle del cómic</p>
+  </header>
+
+  <main class="contenedor">
+    <a href="index.html" class="volver">← Volver al catálogo</a>
+
+    <!-- Aquí se muestran los errores (id inválido, cómic no encontrado...) -->
+    <p id="mensaje" class="mensaje" hidden></p>
+
+    <p id="cargando" class="contador">Cargando...</p>
+
+    <article id="detalle" class="tarjeta detalle" hidden>
+      <h2 id="d-titulo"></h2>
+      <p id="d-autor" class="detalle-autor"></p>
+
+      <dl class="datos">
+        <div><dt>Editorial</dt><dd id="d-editorial"></dd></div>
+        <div><dt>Año de publicación</dt><dd id="d-anio"></dd></div>
+        <div><dt>Precio</dt><dd id="d-precio" class="precio"></dd></div>
+        <div><dt>Stock</dt><dd id="d-stock"></dd></div>
+        <div><dt>Nacionalidad del autor</dt><dd id="d-nacionalidad"></dd></div>
+        <div><dt>Fecha de nacimiento del autor</dt><dd id="d-nacimiento"></dd></div>
+        <div><dt>Registrado el</dt><dd id="d-creado"></dd></div>
+        <div><dt>Última actualización</dt><dd id="d-actualizado"></dd></div>
+      </dl>
+    </article>
+  </main>
+
+  <script type="module" src="js/detalle.js"></script>
+</body>
+</html>

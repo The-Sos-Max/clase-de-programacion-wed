@@ -1,0 +1,2079 @@
+=============== ./backend/src/app.js ===============
+import "dotenv/config";
+import express from "express";
+import { conectarDB } from "./config/db.js";
+import autoresRoutes from "./routes/autores.routes.js";
+import comicsRoutes from "./routes/comics.routes.js";
+
+const app = express();
+
+// Middleware: permite leer el cuerpo de las peticiones en formato JSON
+app.use(express.json());
+app.use(express.static("frontend"));
+app.use(express.static("public"));
+
+// Ruta de prueba
+app.get("/", (req, res) => {
+  res.json({ mensaje: "API de la Tienda de Cómics funcionando" });
+});
+
+// Rutas de la API
+app.use("/api/autores", autoresRoutes);
+app.use("/api/comics", comicsRoutes);
+
+// Middleware para rutas inexistentes
+app.use((req, res) => {
+  res.status(404).json({ mensaje: "Ruta no encontrada" });
+});
+
+const PORT = process.env.PORT || 3000;
+
+// Primero conectamos a la base de datos y luego levantamos el servidor
+conectarDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Servidor escuchando en http://localhost:${PORT}`);
+  });
+});
+=============== ./backend/src/config/db.js ===============
+import mongoose from "mongoose";
+
+export async function conectarDB() {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("Conectado a MongoDB Atlas");
+  } catch (error) {
+    console.error("Error al conectar con MongoDB:", error.message);
+    process.exit(1); // Termina la app si no hay base de datos
+  }
+}
+=============== ./backend/src/controllers/autores.controller.js ===============
+import mongoose from "mongoose";
+import Autor from "../models/Autor.js";
+
+// POST /api/autores  → crear un autor
+export async function crearAutor(req, res) {
+  try {
+    const autor = await Autor.create(req.body);
+    res.status(201).json(autor);
+  } catch (error) {
+    res.status(400).json({ mensaje: error.message });
+  }
+}
+
+// GET /api/autores  → listar todos los autores
+export async function listarAutores(req, res) {
+  try {
+    const autores = await Autor.find().sort({ nombre: 1 });
+    res.json(autores);
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+}
+
+// GET /api/autores/:id  → consultar un autor por su id
+export async function obtenerAutor(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ mensaje: "ID inválido" });
+    }
+
+    const autor = await Autor.findById(id);
+    if (!autor) {
+      return res.status(404).json({ mensaje: "Autor no encontrado" });
+    }
+
+    res.json(autor);
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+}
+=============== ./backend/src/controllers/comics.controller.js ===============
+import mongoose from "mongoose";
+import Comic from "../models/Comic.js";
+import Autor from "../models/Autor.js";
+
+// POST /api/comics  → crear un cómic
+export async function crearComic(req, res) {
+  try {
+    const { autor } = req.body;
+
+    // Validamos que el autor referenciado exista
+    if (!mongoose.isValidObjectId(autor) || !(await Autor.exists({ _id: autor }))) {
+      return res.status(400).json({ mensaje: "El autor indicado no existe" });
+    }
+
+    const comic = await Comic.create(req.body);
+    res.status(201).json(comic);
+  } catch (error) {
+    res.status(400).json({ mensaje: error.message });
+  }
+}
+
+// GET /api/comics  → listar cómics (con filtros opcionales)
+// Ejemplos: /api/comics?editorial=DC Comics   |   /api/comics?autor=<idAutor>
+export async function listarComics(req, res) {
+  try {
+    const filtro = {};
+    if (req.query.editorial) filtro.editorial = req.query.editorial;
+    if (req.query.autor) filtro.autor = req.query.autor;
+    if (req.query.titulo) {
+  filtro.titulo = {
+    $regex: req.query.titulo,
+    $options: "i"
+  };
+}
+    // populate() reemplaza el id del autor por el documento completo
+    const comics = await Comic.find(filtro).populate("autor", "nombre nacionalidad");
+    res.json(comics);
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+}
+
+// GET /api/comics/:id  → consultar un cómic por su id
+export async function obtenerComic(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ mensaje: "ID inválido" });
+    }
+
+    const comic = await Comic.findById(id).populate("autor", "nombre nacionalidad");
+    if (!comic) {
+      return res.status(404).json({ mensaje: "Cómic no encontrado" });
+    }
+
+    res.json(comic);
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+}
+
+ // PUT /api/comics/:id → actualizar un cómic
+export async function actualizarComic(req, res) {
+  try {
+    const { id } = req.params;
+
+    // Validar que el ID tenga un formato correcto
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ mensaje: "ID inválido" });
+    }
+
+    // Si se envía un autor nuevo, comprobar que exista
+    if (req.body.autor !== undefined) {
+      if (
+        !mongoose.isValidObjectId(req.body.autor) ||
+        !(await Autor.exists({ _id: req.body.autor }))
+      ) {
+        return res.status(400).json({
+          mensaje: "El autor indicado no existe"
+        });
+      }
+    }
+
+    const comic = await Comic.findByIdAndUpdate(
+      id,
+      req.body,
+      {
+        new: true,
+        runValidators: true
+      }
+    ).populate("autor", "nombre nacionalidad");
+
+    if (!comic) {
+      return res.status(404).json({
+        mensaje: "Cómic no encontrado"
+      });
+    }
+
+    res.json(comic);
+  } catch (error) {
+    res.status(400).json({ mensaje: error.message });
+  }
+}
+
+// DELETE /api/comics/:id → eliminar un cómic
+export async function eliminarComic(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ mensaje: "ID inválido" });
+    }
+
+    const comic = await Comic.findByIdAndDelete(id);
+
+    if (!comic) {
+      return res.status(404).json({
+        mensaje: "Cómic no encontrado"
+      });
+    }
+
+    res.json({
+      mensaje: "Cómic eliminado correctamente",
+      comic
+    });
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+}
+
+=============== ./backend/src/models/Autor.js ===============
+import mongoose from "mongoose";
+
+const autorSchema = new mongoose.Schema(
+  {
+    nombre: { type: String, required: [true, "El nombre es obligatorio"], trim: true },
+    nacionalidad: { type: String, trim: true },
+    fechaNacimiento: { type: Date }
+  },
+  { timestamps: true } // agrega createdAt y updatedAt automáticamente
+);
+
+export default mongoose.model("Autor", autorSchema, "autores");
+=============== ./backend/src/models/Comic.js ===============
+import mongoose from "mongoose";
+
+const comicSchema = new mongoose.Schema(
+  {
+    titulo: { type: String, required: [true, "El título es obligatorio"], trim: true, unique: true },
+    autor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Autor", // referencia a la colección de autores
+      required: [true, "El autor es obligatorio"]
+    },
+    editorial: { type: String, trim: true },
+    anioPublicacion: { type: Number, min: 1900 },
+    precio: { type: Number, required: [true, "El precio es obligatorio"], min: 0 },
+    stock: { type: Number, default: 0, min: 0 }
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("Comic", comicSchema, "comics");
+=============== ./backend/src/probar-conexion.js ===============
+import "dotenv/config";
+import { conectarDB } from "./config/db.js";
+import mongoose from "mongoose";
+
+await conectarDB();
+await mongoose.disconnect();
+=============== ./backend/src/routes/autores.routes.js ===============
+import { Router } from "express";
+import { crearAutor, listarAutores, obtenerAutor } from "../controllers/autores.controller.js";
+
+const router = Router();
+
+router.post("/", crearAutor);
+router.get("/", listarAutores);
+router.get("/:id", obtenerAutor);
+
+export default router;
+=============== ./backend/src/routes/comics.routes.js ===============
+
+import { Router } from "express";
+import {
+  crearComic,
+  listarComics,
+  obtenerComic,
+  actualizarComic,
+  eliminarComic
+} from "../controllers/comics.controller.js";
+
+const router = Router();
+
+router.post("/", crearComic);
+router.get("/", listarComics);
+router.get("/:id", obtenerComic);
+
+// Nuevas rutas
+router.put("/:id", actualizarComic);
+router.delete("/:id", eliminarComic);
+
+export default router;
+
+=============== ./backend/src/seed.js ===============
+import "dotenv/config";
+import { readFile } from "node:fs/promises";
+import mongoose from "mongoose";
+import Autor from "./models/Autor.js";
+import Comic from "./models/Comic.js";
+
+// Lee un archivo JSON relativo a este archivo
+async function leerJSON(ruta) {
+  const contenido = await readFile(new URL(ruta, import.meta.url), "utf-8");
+  return JSON.parse(contenido);
+}
+
+async function seed() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log("Conectado a MongoDB Atlas");
+
+  const autoresData = await leerJSON("../data/autores.json");
+  const comicsData = await leerJSON("../data/comics.json");
+
+  // Borra lo que haya, para poder ejecutar el seed varias veces
+  await Comic.deleteMany();
+  await Autor.deleteMany();
+
+  // 1. Insertar autores
+  const autores = await Autor.insertMany(autoresData);
+
+  // 2. Diccionario nombre → _id
+  const idPorNombre = Object.fromEntries(autores.map((a) => [a.nombre, a._id]));
+
+  // 3. Reemplazar autorNombre por la referencia real
+  const comics = comicsData.map(({ autorNombre, ...resto }) => ({
+    ...resto,
+    autor: idPorNombre[autorNombre]
+  }));
+  await Comic.insertMany(comics);
+
+  console.log(`Insertados ${autores.length} autores y ${comics.length} cómics`);
+  await mongoose.disconnect();
+}
+
+seed().catch((error) => {
+  console.error(" Error en el seed:", error.message);
+  process.exit(1);
+});
+=============== ./frontend/css/styles.css ===============
+/* ---------- Variables: colores y medidas reutilizables ---------- */
+:root {
+  --color-primario: #d62828;
+  --color-fondo: #f4f1ea;
+  --color-tarjeta: #ffffff;
+  --color-texto: #1d1d1f;
+  --color-suave: #6c6a63;
+  --color-borde: #d9d4c7;
+  --radio: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  line-height: 1.5;
+}
+
+/* ---------- Encabezado y contenedor ---------- */
+.encabezado {
+  background: var(--color-primario);
+  color: #fff;
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+
+.encabezado h1 {
+  margin: 0;
+}
+
+.encabezado p {
+  margin: 0.25rem 0 0;
+  opacity: 0.9;
+}
+
+.contenedor {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.tarjeta {
+  background: var(--color-tarjeta);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  padding: 1.25rem;
+}
+
+.tarjeta h2 {
+  margin-top: 0;
+}
+
+/* Dos columnas que pasan a una sola en pantallas angostas */
+.dos-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ---------- Formularios ---------- */
+form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input,
+select {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-borde);
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+}
+
+button {
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primario);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(0.9);
+}
+
+button.secundario {
+  background: var(--color-suave);
+}
+
+.formulario {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+/* ---------- Lista de cómics ---------- */
+.contador {
+  color: var(--color-suave);
+  margin: 1rem 0 0.5rem;
+}
+
+.grid-comics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.comic {
+  border: 1px solid var(--color-borde);
+  border-left: 5px solid var(--color-primario);
+  border-radius: var(--radio);
+  padding: 1rem;
+}
+
+.comic h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.comic p {
+  margin: 0.15rem 0;
+  font-size: 0.9rem;
+}
+
+.comic .precio {
+  font-weight: 700;
+  color: var(--color-primario);
+}
+
+.vacio {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--color-suave);
+}
+
+/* ---------- Mensajes ---------- */
+.mensaje {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radio);
+  font-weight: 600;
+}
+
+.mensaje[hidden] {
+  display: none;
+}
+
+.mensaje.ok {
+  background: #e3f5e8;
+  color: #1b6e34;
+  border: 1px solid #2a9d4b;
+}
+
+.mensaje.error {
+  background: #fde8ea;
+  color: #8f0f19;
+  border: 1px solid #c1121f;
+}
+=============== ./frontend/index.html ===============
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tienda de Cómics</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="encabezado">
+    <h1>🦸 Tienda de Cómics</h1>
+    <p>Cliente web para la API REST</p>
+  </header>
+
+  <main class="contenedor">
+    <!-- Aquí se muestran los avisos de éxito o de error -->
+    <p id="mensaje" class="mensaje" hidden></p>
+
+    <!-- ========== CONSULTAR ========== -->
+    <section class="tarjeta">
+      <h2>Consultar cómics</h2>
+
+      <form id="form-filtros" class="filtros">
+        <label>
+                Buscar por título
+  <input
+    type="text"
+    id="filtro-titulo"
+    placeholder="Ej. Batman, Watchmen..."
+  >
+</label>
+        <label>
+          Autor
+          <select id="filtro-autor"></select>
+        </label>
+
+        <label>
+          Editorial
+          <select id="filtro-editorial"></select>
+        </label>
+
+        <button type="submit">Buscar</button>
+        <button type="button" id="btn-limpiar" class="secundario">Limpiar</button>
+      </form>
+
+      <p id="contador" class="contador"></p>
+      <div id="lista-comics" class="grid-comics"></div>
+      <div class="paginacion">
+  <button type="button" id="btn-anterior" class="secundario">
+    Anterior
+  </button>
+
+  <span id="pagina-actual">Página 1</span>
+
+  <button type="button" id="btn-siguiente">
+    Siguiente
+  </button>
+</div>
+    </section>
+
+    <!-- ========== AGREGAR ========== -->
+    <div class="dos-columnas">
+      <section class="tarjeta">
+        <h2>Agregar autor</h2>
+        <form id="form-autor" class="formulario">
+          <label>
+            Nombre *
+            <input type="text" name="nombre" required>
+          </label>
+          <label>
+            Nacionalidad
+            <input type="text" name="nacionalidad">
+          </label>
+          <label>
+            Fecha de nacimiento
+            <input type="date" name="fechaNacimiento">
+          </label>
+          <button type="submit">Guardar autor</button>
+        </form>
+      </section>
+
+      <section class="tarjeta">
+        <h2>Agregar cómic</h2>
+        <form id="form-comic" class="formulario">
+          <label>
+            Título *
+            <input type="text" name="titulo" required>
+          </label>
+          <label>
+            Autor *
+            <select id="comic-autor" name="autor" required></select>
+          </label>
+          <label>
+            Editorial
+            <input type="text" name="editorial">
+          </label>
+          <label>
+            Año de publicación
+            <input type="number" name="anioPublicacion" min="1900" max="2100">
+          </label>
+          <label>
+            Precio (COP) *
+            <input type="number" name="precio" min="0" step="1" required>
+          </label>
+          <label>
+            Stock
+            <input type="number" name="stock" min="0" step="1" value="0">
+          </label>
+          <button type="submit">Guardar cómic</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <!-- type="module" permite usar import/export en el JavaScript -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
+=============== ./frontend/js/api.js ===============
+// Como el cliente lo sirve la misma API, basta con una ruta relativa
+const API_URL = "/api";
+
+// Función base: hace la petición, convierte la respuesta a JSON y lanza un error si algo falla
+async function peticion(ruta, opciones = {}) {
+  const respuesta = await fetch(`${API_URL}${ruta}`, {
+    headers: { "Content-Type": "application/json" },
+    ...opciones
+  });
+
+  const datos = await respuesta.json();
+
+  // respuesta.ok es false cuando el código HTTP es 400, 404, 500...
+  if (!respuesta.ok) {
+    throw new Error(datos.mensaje || "Error en la petición");
+  }
+
+  return datos;
+}
+
+// ---------- Autores ----------
+
+// GET /api/autores
+export function listarAutores() {
+  return peticion("/autores");
+}
+
+// POST /api/autores
+export function crearAutor(autor) {
+  return peticion("/autores", {
+    method: "POST",
+    body: JSON.stringify(autor)
+  });
+}
+
+// ---------- Cómics ----------
+
+// GET /api/comics  o  GET /api/comics?autor=...&editorial=...
+export function listarComics(filtros = {}) {
+  const params = new URLSearchParams();
+
+  // Solo agregamos los filtros que tengan valor
+  Object.entries(filtros).forEach(([clave, valor]) => {
+    if (valor) params.set(clave, valor);
+  });
+
+  const query = params.toString();
+  return peticion(`/comics${query ? `?${query}` : ""}`);
+}
+
+// POST /api/comics
+export function crearComic(comic) {
+  return peticion("/comics", {
+    method: "POST",
+    body: JSON.stringify(comic)
+  });
+}
+// PUT /api/comics/:id
+export function actualizarComic(id, datos) {
+  return peticion(`/comics/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(datos)
+  });
+}
+
+// DELETE /api/comics/:id
+export function eliminarComic(id) {
+  return peticion(`/comics/${id}`, {
+    method: "DELETE"
+  });
+}
+/**
+ * GET /api/comics/:id
+ * Consultar un cómic por su ID
+ */
+export function obtenerComic(id) {
+  return peticion(`/comics/${id}`);
+}
+
+/**
+ * PUT /api/comics/:id
+ * Actualizar un cómic
+ */
+export function actualizarComic(id, datos) {
+  return peticion(`/comics/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(datos)
+  });
+}
+
+/**
+ * DELETE /api/comics/:id
+ * Eliminar un cómic
+ */
+export function eliminarComic(id) {
+  return peticion(`/comics/${id}`, {
+    method: "DELETE"
+  });
+}
+=============== ./frontend/js/app.js ===============
+import {
+  listarAutores,
+  crearAutor,
+  listarComics,
+  crearComic,
+  actualizarComic,
+  eliminarComic
+} from "./api.js";
+
+// ============================================================
+// 1. Referencias al DOM
+// ============================================================
+const $ = (id) => document.getElementById(id);
+
+const formFiltros = $("form-filtros");
+const filtroAutor = $("filtro-autor");
+const filtroEditorial = $("filtro-editorial");
+
+const filtroTitulo = $("filtro-titulo");
+const btnAnterior = $("btn-anterior");
+const btnSiguiente = $("btn-siguiente");
+const paginaActual = $("pagina-actual");
+const btnLimpiar = $("btn-limpiar");
+const contador = $("contador");
+const listaComics = $("lista-comics");
+const mensaje = $("mensaje");
+const formAutor = $("form-autor");
+const formComic = $("form-comic");
+const comicAutor = $("comic-autor");
+
+// ============================================================
+// 2. Utilidades
+// ============================================================
+// ============================================================
+// Paginación
+// ============================================================
+let pagina = 1;
+const comicsPorPagina = 4;
+let totalComics = 0;
+// Crea un elemento con texto. Usa textContent (no innerHTML) para evitar XSS
+function crearElemento(etiqueta, texto, clase) {
+  const elemento = document.createElement(etiqueta);
+  elemento.textContent = texto;
+  if (clase) elemento.className = clase;
+  return elemento;
+}
+
+// Muestra un aviso arriba de la página y lo oculta a los 5 segundos
+let temporizadorMensaje;
+function mostrarMensaje(texto, tipo = "ok") {
+  mensaje.textContent = texto;
+  mensaje.className = `mensaje ${tipo}`;
+  mensaje.hidden = false;
+
+  clearTimeout(temporizadorMensaje);
+  temporizadorMensaje = setTimeout(() => {
+    mensaje.hidden = true;
+  }, 5000);
+}
+
+// Quita los campos vacíos del objeto (para no enviar "" a la API)
+function limpiarVacios(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto).filter(([, valor]) => valor !== "")
+  );
+}
+
+// Formatea números como pesos colombianos: 65000 → $ 65.000
+const formatoPeso = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0
+});
+
+// Llena un <select> con opciones, conservando la selección actual si aún existe
+function llenarSelect(select, opciones, textoInicial) {
+  const seleccionado = select.value;
+
+  select.replaceChildren(new Option(textoInicial, ""));
+  opciones.forEach(({ valor, texto }) => select.add(new Option(texto, valor)));
+
+  select.value = seleccionado;
+  if (select.selectedIndex === -1) select.selectedIndex = 0;
+}
+
+// ============================================================
+// 3. Dibujar resultados
+// ============================================================
+function renderComics(comics) {
+  listaComics.replaceChildren();
+
+  totalComics = comics.length;
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(totalComics / comicsPorPagina)
+  );
+
+  if (pagina > totalPaginas) {
+    pagina = totalPaginas;
+  }
+
+  contador.textContent =
+    totalComics === 1
+      ? "1 cómic encontrado"
+      : `${totalComics} cómics encontrados`;
+
+  paginaActual.textContent = `Página ${pagina} de ${totalPaginas}`;
+
+  btnAnterior.disabled = pagina === 1;
+  btnSiguiente.disabled = pagina === totalPaginas;
+
+  if (totalComics === 0) {
+    listaComics.append(
+      crearElemento("p", "No se encontraron cómics con ese filtro.", "vacio")
+    );
+    return;
+  }
+
+  const inicio = (pagina - 1) * comicsPorPagina;
+  const comicsPagina = comics.slice(inicio, inicio + comicsPorPagina);
+
+  comicsPagina.forEach((comic) => {
+    const tarjeta = document.createElement("article");
+    tarjeta.className = "comic";
+
+    tarjeta.append(
+      crearElemento("h3", comic.titulo),
+      crearElemento("p", `✍️ ${comic.autor?.nombre ?? "Autor desconocido"}`),
+      crearElemento(
+        "p",
+        [comic.editorial, comic.anioPublicacion].filter(Boolean).join(" · ")
+      ),
+      crearElemento("p", formatoPeso.format(comic.precio), "precio"),
+      crearElemento("p", `Stock: ${comic.stock}`)
+    );
+
+    // Botón para editar
+    const btnEditar = crearElemento("button", "Editar");
+    btnEditar.type = "button";
+
+    btnEditar.addEventListener("click", async () => {
+      await editarComic(comic);
+    });
+
+    // Botón para eliminar
+    const btnEliminar = crearElemento("button", "Eliminar");
+    btnEliminar.type = "button";
+    btnEliminar.className = "secundario";
+
+    btnEliminar.addEventListener("click", async () => {
+      await borrarComic(comic);
+    });
+
+    // Contenedor de los botones
+    const acciones = document.createElement("div");
+    acciones.className = "acciones";
+    acciones.append(btnEditar, btnEliminar);
+
+    tarjeta.append(acciones);
+    listaComics.append(tarjeta);
+  });
+}
+async function borrarComic(comic) {
+  const confirmar = confirm(
+    `¿Seguro que deseas eliminar "${comic.titulo}"?`
+  );
+
+  if (!confirmar) return;
+
+  try {
+    await eliminarComic(comic._id);
+
+    mostrarMensaje(`Cómic "${comic.titulo}" eliminado correctamente`);
+
+    await Promise.all([
+      cargarEditoriales(),
+      buscar()
+    ]);
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+// ============================================================
+// 4. Cargar datos desde la API
+// ============================================================
+
+// Llena los <select> de autores (el de filtros y el del formulario de cómic)
+async function cargarAutores() {
+  const autores = await listarAutores();
+  const opciones = autores.map((autor) => ({ valor: autor._id, texto: autor.nombre }));
+
+  llenarSelect(filtroAutor, opciones, "Todos los autores");
+  llenarSelect(comicAutor, opciones, "Seleccione un autor");
+}
+
+// La API no tiene un endpoint de editoriales, así que las sacamos de los cómics
+async function cargarEditoriales() {
+  const comics = await listarComics();
+  const editoriales = [...new Set(comics.map((c) => c.editorial).filter(Boolean))].sort();
+
+  llenarSelect(
+    filtroEditorial,
+    editoriales.map((editorial) => ({ valor: editorial, texto: editorial })),
+    "Todas las editoriales"
+  );
+}
+
+// Consulta los cómics aplicando los filtros elegidos y los dibuja
+async function buscar() {
+   pagina = 1;
+  const comics = await listarComics({
+    titulo: filtroTitulo.value.trim(),
+    autor: filtroAutor.value,
+    editorial: filtroEditorial.value
+  });
+
+  renderComics(comics);
+}
+
+async function editarComic(comic) {
+  const titulo = prompt("Título del cómic:", comic.titulo);
+  if (titulo === null) return;
+
+  const precioTexto = prompt(
+    "Precio en COP:",
+    String(comic.precio)
+  );
+  if (precioTexto === null) return;
+
+  const stockTexto = prompt(
+    "Cantidad en stock:",
+    String(comic.stock ?? 0)
+  );
+  if (stockTexto === null) return;
+
+  // Convertimos los valores a sus tipos correctos
+  const precio = Number(precioTexto);
+  const stock = Number(stockTexto);
+
+  // Validamos el título
+  if (!titulo.trim()) {
+    mostrarMensaje("El título es obligatorio", "error");
+    return;
+  }
+
+  // Validamos el precio
+  if (!Number.isFinite(precio) || precio <= 0) {
+    mostrarMensaje("El precio debe ser mayor que cero", "error");
+    return;
+  }
+
+  // Validamos el stock
+  if (!Number.isInteger(stock) || stock < 0) {
+    mostrarMensaje(
+      "El stock debe ser un entero mayor o igual a cero",
+      "error"
+    );
+    return;
+  }
+
+  try {
+    await actualizarComic(comic._id, {
+      titulo: titulo.trim(),
+      precio,
+      stock
+    });
+
+    mostrarMensaje("Cómic actualizado correctamente");
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+async function borrarComic(comic) {
+  // Pedimos confirmación antes de eliminar
+  const confirmar = confirm(
+    `¿Seguro que deseas eliminar "${comic.titulo}"?`
+  );
+
+  // Si el usuario cancela, no hacemos nada
+  if (!confirmar) return;
+
+  try {
+    // Enviamos la petición DELETE a la API
+    await eliminarComic(comic._id);
+
+    // Mostramos el mensaje de éxito
+    mostrarMensaje("Cómic eliminado correctamente");
+
+    // Actualizamos la lista de cómics
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+async function editarComic(comic) {
+  const titulo = prompt("Nuevo título:", comic.titulo);
+  if (titulo === null) return;
+
+  const precioTexto = prompt("Nuevo precio:", comic.precio);
+  if (precioTexto === null) return;
+
+  const editorial = prompt("Nueva editorial:", comic.editorial || "");
+  if (editorial === null) return;
+
+  const stockTexto = prompt("Nuevo stock:", comic.stock);
+  if (stockTexto === null) return;
+
+  const precio = Number(precioTexto);
+  const stock = Number(stockTexto);
+
+  if (
+    !titulo.trim() ||
+    precioTexto.trim() === "" ||
+    !Number.isFinite(precio) ||
+    precio < 0 ||
+    stockTexto.trim() === "" ||
+    !Number.isInteger(stock) ||
+    stock < 0
+  ) {
+    mostrarMensaje(
+      "Verifica el título, el precio y el stock.",
+      "error"
+    );
+    return;
+  }
+
+  try {
+    await actualizarComic(comic._id, {
+      titulo: titulo.trim(),
+      precio,
+      editorial: editorial.trim(),
+      stock
+    });
+
+    mostrarMensaje(`Cómic "${titulo}" actualizado correctamente`);
+
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+
+
+// ============================================================
+// 5. Eventos
+// ============================================================
+
+// --- Filtrar ---
+formFiltros.addEventListener("submit", async (evento) => {
+  evento.preventDefault(); // evita que el navegador recargue la página
+  try {
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+// Filtrar automáticamente cuando cambie el autor
+filtroAutor.addEventListener("change", async () => {
+  try {
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+
+// Filtrar automáticamente cuando cambie la editorial
+filtroEditorial.addEventListener("change", async () => {
+  try {
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+
+async function buscarAutomaticamente() {
+  try {
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+}
+
+// Buscar automáticamente al cambiar el autor
+filtroAutor.addEventListener("change", buscarAutomaticamente);
+
+// Buscar automáticamente al cambiar la editorial
+filtroEditorial.addEventListener("change", buscarAutomaticamente);
+
+btnLimpiar.addEventListener("click", async () => {
+  formFiltros.reset();
+  try {
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+// --- Paginación: página anterior ---
+btnAnterior.addEventListener("click", async () => {
+  if (pagina > 1) {
+    pagina--;
+    try {
+      await buscar();
+    } catch (error) {
+      mostrarMensaje(error.message, "error");
+    }
+  }
+});
+
+// --- Paginación: página siguiente ---
+btnSiguiente.addEventListener("click", async () => {
+  pagina++;
+  try {
+    await buscar();
+  } catch (error) {
+    pagina--;
+    mostrarMensaje(error.message, "error");
+  }
+});
+// --- Agregar autor ---
+formAutor.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  try {
+    // FormData lee los campos por su atributo name → objeto { nombre, nacionalidad, ... }
+    const datos = limpiarVacios(Object.fromEntries(new FormData(formAutor)));
+
+    const autor = await crearAutor(datos);
+
+    mostrarMensaje(`Autor "${autor.nombre}" guardado correctamente`);
+    formAutor.reset();
+    await cargarAutores(); // actualiza las listas desplegables
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+
+// --- Agregar cómic ---
+formComic.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  try {
+    const datos = limpiarVacios(Object.fromEntries(new FormData(formComic)));
+
+    // FormData entrega todo como texto: convertimos los campos numéricos
+    datos.precio = Number(datos.precio);
+    if (datos.anioPublicacion) datos.anioPublicacion = Number(datos.anioPublicacion);
+    if (datos.stock) datos.stock = Number(datos.stock);
+
+    const comic = await crearComic(datos);
+
+    mostrarMensaje(`Cómic "${comic.titulo}" guardado correctamente`);
+    formComic.reset();
+    await Promise.all([cargarEditoriales(), buscar()]); // refresca filtros y lista
+  } catch (error) {
+    mostrarMensaje(error.message, "error");
+  }
+});
+
+// ============================================================
+// 6. Arranque
+// ============================================================
+async function iniciar() {
+  try {
+    await Promise.all([cargarAutores(), cargarEditoriales()]);
+    await buscar();
+  } catch (error) {
+    mostrarMensaje(`No se pudo conectar con la API: ${error.message}`, "error");
+  }
+}
+
+iniciar();
+=============== ./package.json ===============
+{
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "mongodb": "^7.7.0",
+    "mongoose": "^9.11.2"
+  },
+  "name": "clase-de-programacion-wed",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch backend/src/app.js",
+    "seed": "node backend/src/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Sos-Max/clase-de-programacion-wed.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/The-Sos-Max/clase-de-programacion-wed/issues"
+  },
+  "homepage": "https://github.com/The-Sos-Max/clase-de-programacion-wed#readme"
+}
+
+=============== ./parcial1Huertas-urbanas/index.html ===============
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Raíz Común — Huertas Urbanas Colaborativas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Radios ocultos que controlan la navegación (solo HTML + CSS, sin JS) -->
+<input type="radio" name="pantalla" id="r-registro" class="screen-radio" checked>
+<input type="radio" name="pantalla" id="r-huertas" class="screen-radio">
+<input type="radio" name="pantalla" id="r-calendario" class="screen-radio">
+<input type="radio" name="pantalla" id="r-actividades" class="screen-radio">
+<input type="radio" name="pantalla" id="r-foro" class="screen-radio">
+<input type="radio" name="pantalla" id="r-biblioteca" class="screen-radio">
+<input type="radio" name="pantalla" id="r-admin" class="screen-radio">
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">Raíz<span>·</span>Común</div>
+    <div class="brand-sub">Huertas urbanas colaborativas — soberanía alimentaria, sostenibilidad y educación</div>
+
+    <label class="nav-item" for="r-registro"><span class="nav-dot"></span>Registro de usuarios</label>
+    <label class="nav-item" for="r-huertas"><span class="nav-dot"></span>Huertas comunitarias</label>
+    <label class="nav-item" for="r-calendario"><span class="nav-dot"></span>Calendario</label>
+    <label class="nav-item" for="r-actividades"><span class="nav-dot"></span>Registro de actividades</label>
+    <label class="nav-item" for="r-foro"><span class="nav-dot"></span>Foro</label>
+    <label class="nav-item" for="r-biblioteca"><span class="nav-dot"></span>Biblioteca de guías</label>
+    <label class="nav-item" for="r-admin"><span class="nav-dot"></span>Panel administrativo</label>
+
+    <div class="sidebar-foot">Mockup navegable · MVP<br>7 pantallas del producto</div>
+  </div>
+
+  <div class="main">
+
+    <!-- ============ REGISTRO ============ -->
+    <div class="screen" id="screen-registro">
+      <div class="screen-head">
+        <div>
+          <h1>Únete a una huerta</h1>
+          <p>Regístrate como vecino, coordinador de huerta u organización aliada.</p>
+        </div>
+      </div>
+      <div class="auth-wrap">
+        <div class="seed-card">
+          <span class="seed-tag">Nueva cuenta</span>
+          <div class="auth-toggle">
+            <div class="active">Crear cuenta</div>
+            <div>Iniciar sesión</div>
+          </div>
+          <div class="field">
+            <label>Nombre completo</label>
+            <input type="text" placeholder="Ej. Camila Rodríguez">
+          </div>
+          <div class="field">
+            <label>Correo electrónico</label>
+            <input type="email" placeholder="camila@correo.com">
+          </div>
+          <div class="field">
+            <label>Barrio / localidad</label>
+            <input type="text" placeholder="Ej. Suba, Bogotá">
+          </div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" placeholder="••••••••">
+          </div>
+          <div class="field">
+            <label>¿Cómo quieres participar?</label>
+            <div class="role-pick">
+              <label><input type="radio" name="rol" checked><span>Vecino/a</span></label>
+              <label><input type="radio" name="rol"><span>Coordinador/a</span></label>
+              <label><input type="radio" name="rol"><span>Organización</span></label>
+            </div>
+          </div>
+          <button class="btn btn-solid" style="width:100%; padding:12px;">Crear mi cuenta</button>
+        </div>
+        <div class="auth-side">
+          <h2>Cultivar en comunidad,<br>cosechar en red.</h2>
+          <ul>
+            <li>Encuentra huertas activas cerca de tu barrio.</li>
+            <li>Coordina siembra y cosecha con tu comunidad.</li>
+            <li>Aprende con guías prácticas de cultivo urbano.</li>
+            <li>Comparte dudas y experiencias en el foro.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HUERTAS ============ -->
+    <div class="screen" id="screen-huertas">
+      <div class="screen-head">
+        <div>
+          <h1>Huertas comunitarias</h1>
+          <p>Explora las huertas activas en tu ciudad o crea una nueva para tu barrio.</p>
+        </div>
+        <button class="btn btn-solid">+ Crear huerta</button>
+      </div>
+      <div class="huertas-grid">
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#4E6B3E,#38502C);">Huerta El Jardín de Todos</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Suba, Bogotá · 18 integrantes<br>🌱 Fundada en marzo 2025</div>
+            <div class="tag-row"><span class="tag">Hortalizas</span><span class="tag">Compostaje</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#B84E2A,#8A3A1F);">Huerta Semillas del Sur</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Ciudad Bolívar, Bogotá · 9 integrantes<br>🌱 Fundada en junio 2025</div>
+            <div class="tag-row"><span class="tag">Aromáticas</span><span class="tag">Escolar</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="huerta-card">
+          <div class="huerta-banner" style="background:linear-gradient(135deg,#E0A63C,#B9822A);">Terraza Verde Chapinero</div>
+          <div class="huerta-body">
+            <div class="huerta-meta">📍 Chapinero, Bogotá · 12 integrantes<br>🌱 Fundada en enero 2026</div>
+            <div class="tag-row"><span class="tag">Techos verdes</span><span class="tag">Frutales</span></div>
+            <button class="btn btn-ghost btn-sm">Ver huerta</button>
+          </div>
+        </div>
+        <div class="new-huerta-card">
+          <div class="plus">+</div>
+          Registrar una nueva huerta
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CALENDARIO ============ -->
+    <div class="screen" id="screen-calendario">
+      <div class="screen-head">
+        <div>
+          <h1>Calendario de siembra y cosecha</h1>
+          <p>Marzo 2026 · Huerta El Jardín de Todos</p>
+        </div>
+        <button class="btn btn-solid">+ Nuevo evento</button>
+      </div>
+      <div class="cal-layout">
+        <div class="cal-grid">
+          <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">M</div><div class="cal-dow">J</div><div class="cal-dow">V</div><div class="cal-dow">S</div><div class="cal-dow">D</div>
+          <div class="cal-cell"><div class="num">1</div></div>
+          <div class="cal-cell"><div class="num">2</div><div class="cal-evt evt-siembra">Siembra lechuga</div></div>
+          <div class="cal-cell"><div class="num">3</div></div>
+          <div class="cal-cell"><div class="num">4</div></div>
+          <div class="cal-cell"><div class="num">5</div><div class="cal-evt evt-siembra">Siembra cilantro</div></div>
+          <div class="cal-cell"><div class="num">6</div></div>
+          <div class="cal-cell"><div class="num">7</div></div>
+          <div class="cal-cell"><div class="num">8</div></div>
+          <div class="cal-cell"><div class="num">9</div></div>
+          <div class="cal-cell"><div class="num">10</div></div>
+          <div class="cal-cell"><div class="num">11</div><div class="cal-evt evt-cosecha">Cosecha rábano</div></div>
+          <div class="cal-cell"><div class="num">12</div></div>
+          <div class="cal-cell"><div class="num">13</div></div>
+          <div class="cal-cell"><div class="num">14</div></div>
+          <div class="cal-cell"><div class="num">15</div></div>
+          <div class="cal-cell"><div class="num">16</div></div>
+          <div class="cal-cell"><div class="num">17</div></div>
+          <div class="cal-cell"><div class="num">18</div><div class="cal-evt evt-cosecha">Cosecha acelga</div></div>
+          <div class="cal-cell"><div class="num">19</div></div>
+          <div class="cal-cell"><div class="num">20</div></div>
+          <div class="cal-cell"><div class="num">21</div></div>
+        </div>
+        <div class="cal-side">
+          <div class="legend">
+            <span><i style="background:var(--leaf)"></i>Siembra</span>
+            <span><i style="background:var(--tomato)"></i>Cosecha</span>
+          </div>
+          <h3>Próximos eventos</h3>
+          <div class="upcoming"><b>Siembra de cilantro</b>5 de marzo · Lote B</div>
+          <div class="upcoming"><b>Cosecha de rábano</b>11 de marzo · Lote A</div>
+          <div class="upcoming"><b>Cosecha de acelga</b>18 de marzo · Lote C</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ACTIVIDADES ============ -->
+    <div class="screen" id="screen-actividades">
+      <div class="screen-head">
+        <div>
+          <h1>Registro de actividades</h1>
+          <p>Documenta el trabajo hecho en la huerta para llevar la memoria del proceso.</p>
+        </div>
+      </div>
+      <div class="act-form">
+        <div class="act-form-row">
+          <div class="field">
+            <label>Tipo de actividad</label>
+            <select><option>Riego</option><option>Siembra</option><option>Cosecha</option><option>Compostaje</option><option>Mantenimiento</option></select>
+          </div>
+          <div class="field">
+            <label>Fecha</label>
+            <input type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label>Descripción</label>
+          <textarea rows="2" placeholder="Ej. Se regaron los lotes A y B, se removió maleza en el lote C..."></textarea>
+        </div>
+        <button class="btn btn-solid">Registrar actividad</button>
+      </div>
+
+      <div class="feed">
+        <div class="feed-item">
+          <div class="feed-avatar">CR</div>
+          <div>
+            <b>Camila Rodríguez</b> registró una <b>siembra</b>
+            <div class="feed-time">Hoy, 9:40 a.m. · Huerta El Jardín de Todos</div>
+            <div class="feed-desc">Se sembraron 40 plántulas de lechuga y cilantro en el lote B.</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="feed-avatar">JT</div>
+          <div>
+            <b>Jorge Torres</b> registró <b>mantenimiento</b>
+            <div class="feed-time">Ayer, 4:15 p.m.</div>
+            <div class="feed-desc">Reparación del sistema de riego por goteo del lote A.</div>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="feed-avatar">ML</div>
+          <div>
+            <b>Marta Lozano</b> registró <b>cosecha</b>
+            <div class="feed-time">Lunes, 8:00 a.m.</div>
+            <div class="feed-desc">Se cosecharon 6 kg de acelga, repartidos entre los participantes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FORO ============ -->
+    <div class="screen" id="screen-foro">
+      <div class="screen-head">
+        <div>
+          <h1>Foro de la comunidad</h1>
+          <p>Preguntas, consejos y experiencias entre huerteros.</p>
+        </div>
+        <button class="btn btn-solid">+ Nuevo tema</button>
+      </div>
+      <div class="forum-list">
+        <div class="thread">
+          <div>
+            <div class="thread-title">¿Qué hacer contra el pulgón sin usar químicos?</div>
+            <div class="thread-meta">Iniciado por Marta Lozano · Huerta El Jardín de Todos</div>
+          </div>
+          <div class="thread-stats"><b>12</b>respuestas</div>
+        </div>
+        <div class="thread">
+          <div>
+            <div class="thread-title">Intercambio de semillas de tomate cherry</div>
+            <div class="thread-meta">Iniciado por Jorge Torres · Terraza Verde Chapinero</div>
+          </div>
+          <div class="thread-stats"><b>5</b>respuestas</div>
+        </div>
+        <div class="thread">
+          <div>
+            <div class="thread-title">Turnos de riego para este fin de semana</div>
+            <div class="thread-meta">Iniciado por Camila Rodríguez · Huerta El Jardín de Todos</div>
+          </div>
+          <div class="thread-stats"><b>3</b>respuestas</div>
+        </div>
+      </div>
+
+      <div style="margin-top:30px; padding-top:20px; border-top:1.5px solid var(--line);">
+        <h3 style="margin-bottom:14px;">¿Qué hacer contra el pulgón sin usar químicos?</h3>
+        <div class="reply"><b>Marta Lozano</b><p>Llevo dos semanas viendo pulgón en las plantas de acelga del lote C, ¿alguna receta casera que funcione?</p></div>
+        <div class="reply"><b>Jorge Torres</b><p>A mí me ha funcionado el jabón potásico diluido, rociado cada tres días por la tarde.</p></div>
+        <div class="reply"><b>Camila Rodríguez</b><p>También sirve sembrar caléndula cerca, ayuda a alejar varias plagas.</p></div>
+      </div>
+    </div>
+
+    <!-- ============ BIBLIOTECA ============ -->
+    <div class="screen" id="screen-biblioteca">
+      <div class="screen-head">
+        <div>
+          <h1>Biblioteca de guías</h1>
+          <p>Material práctico para aprender y enseñar cultivo urbano.</p>
+        </div>
+      </div>
+      <div class="lib-filters">
+        <div class="chip active">Todas</div>
+        <div class="chip">Siembra</div>
+        <div class="chip">Compostaje</div>
+        <div class="chip">Plagas naturales</div>
+        <div class="chip">Diseño de huerta</div>
+      </div>
+      <div class="guide-grid">
+        <div class="guide-card"><div class="guide-icon">🌱</div><h3>Cómo empezar un semillero</h3><p>Paso a paso para germinar en espacios pequeños.</p></div>
+        <div class="guide-card"><div class="guide-icon">♻️</div><h3>Compostaje casero en balde</h3><p>Convierte residuos de cocina en abono en 6 semanas.</p></div>
+        <div class="guide-card"><div class="guide-icon">🐞</div><h3>Control natural de plagas</h3><p>Recetas caseras y plantas repelentes.</p></div>
+        <div class="guide-card"><div class="guide-icon">📐</div><h3>Diseñar tu huerta en camas</h3><p>Aprovecha espacios reducidos con camas elevadas.</p></div>
+        <div class="guide-card"><div class="guide-icon">💧</div><h3>Riego eficiente por goteo</h3><p>Arma un sistema simple con materiales reciclados.</p></div>
+        <div class="guide-card"><div class="guide-icon">🌾</div><h3>Calendario de siembra en Bogotá</h3><p>Qué sembrar según la temporada y la altura.</p></div>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN ============ -->
+    <div class="screen" id="screen-admin">
+      <div class="screen-head">
+        <div>
+          <h1>Panel administrativo</h1>
+          <p>Gestiona usuarios y huertas: edita, agrega o elimina registros directamente en la tabla.</p>
+        </div>
+      </div>
+      <div class="admin-tabs">
+        <div class="admin-tab active" data-admin="usuarios">Usuarios</div>
+        <div class="admin-tab" data-admin="huertas">Huertas</div>
+      </div>
+
+      <!-- USUARIOS -->
+      <div class="admin-panel" id="admin-usuarios">
+        <div class="admin-toolbar">
+          <span style="font-size:12.5px; color:var(--soil-light);">3 usuarios registrados</span>
+          <button class="btn btn-solid btn-sm" onclick="addUserRow()">+ Agregar usuario</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Huerta</th><th></th></tr>
+          </thead>
+          <tbody id="user-table-body">
+            <tr>
+              <td><input value="Camila Rodríguez" disabled></td>
+              <td><input value="camila@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option selected>Coordinadora</option><option>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-activo">Activo</span></td>
+              <td><input value="El Jardín de Todos" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Jorge Torres" disabled></td>
+              <td><input value="jorge@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option>Coordinadora</option><option selected>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-activo">Activo</span></td>
+              <td><input value="Terraza Verde Chapinero" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Marta Lozano" disabled></td>
+              <td><input value="marta@correo.com" disabled></td>
+              <td>
+                <select disabled>
+                  <option>Coordinadora</option><option selected>Vecino/a</option><option>Organización</option>
+                </select>
+              </td>
+              <td><span class="badge badge-pendiente">Pendiente</span></td>
+              <td><input value="Semillas del Sur" disabled></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- HUERTAS ADMIN -->
+      <div class="admin-panel" id="admin-huertas" style="display:none;">
+        <div class="admin-toolbar">
+          <span style="font-size:12.5px; color:var(--soil-light);">3 huertas registradas</span>
+          <button class="btn btn-solid btn-sm" onclick="addHuertaRow()">+ Agregar huerta</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Localidad</th><th>Integrantes</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="huerta-table-body">
+            <tr>
+              <td><input value="El Jardín de Todos" disabled></td>
+              <td><input value="Suba, Bogotá" disabled></td>
+              <td><input value="18" disabled></td>
+              <td><span class="badge badge-activo">Activa</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Semillas del Sur" disabled></td>
+              <td><input value="Ciudad Bolívar, Bogotá" disabled></td>
+              <td><input value="9" disabled></td>
+              <td><span class="badge badge-activo">Activa</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+            <tr>
+              <td><input value="Terraza Verde Chapinero" disabled></td>
+              <td><input value="Chapinero, Bogotá" disabled></td>
+              <td><input value="12" disabled></td>
+              <td><span class="badge badge-pendiente">En revisión</span></td>
+              <td class="row-actions">
+                <button class="icon-btn edit" onclick="toggleEdit(this)" title="Editar">✎</button>
+                <button class="icon-btn del" onclick="deleteRow(this)" title="Eliminar">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast">Cambios guardados</div>
+
+</body>
+</html>
+=============== ./parcial1Huertas-urbanas/styles.css ===============
+:root{
+  --soil: #3B2E22;
+  --soil-light: #6B5643;
+  --paper: #F1E9D8;
+  --paper-deep: #E7DBC2;
+  --leaf: #4E6B3E;
+  --leaf-deep: #38502C;
+  --leaf-pale: #C9D6B8;
+  --tomato: #B84E2A;
+  --sun: #E0A63C;
+  --ink: #2A2118;
+  --line: rgba(59,46,34,0.18);
+  --card: #FBF6EA;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Work Sans', sans-serif;
+  min-height:100vh;
+}
+h1,h2,h3,.display{
+  font-family:'Fraunces', serif;
+  color:var(--soil);
+  font-weight:600;
+  margin:0;
+}
+.app{
+  display:flex;
+  min-height:100vh;
+}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+  width:230px;
+  flex-shrink:0;
+  background:var(--soil);
+  color:var(--paper);
+  padding:28px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.brand{
+  font-family:'Fraunces', serif;
+  font-size:22px;
+  font-weight:700;
+  color:var(--paper);
+  margin-bottom:4px;
+  line-height:1.15;
+}
+.brand span{color:var(--sun);}
+.brand-sub{
+  font-size:12px;
+  color:var(--leaf-pale);
+  margin-bottom:26px;
+  line-height:1.5;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:3px;
+  color:var(--paper);
+  opacity:0.72;
+  cursor:pointer;
+  font-size:14.5px;
+  border-left:3px solid transparent;
+  transition:opacity .15s;
+}
+.nav-item:hover{opacity:1;}
+.nav-item.active{
+  opacity:1;
+  background:rgba(255,255,255,0.06);
+  border-left:3px solid var(--sun);
+  font-weight:600;
+}
+.nav-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:currentColor;flex-shrink:0;
+}
+.sidebar-foot{
+  margin-top:auto;
+  padding-top:18px;
+  border-top:1px solid rgba(255,255,255,0.12);
+  font-size:11.5px;
+  color:var(--leaf-pale);
+  line-height:1.6;
+}
+
+/* ---------- MAIN ---------- */
+.main{
+  flex:1;
+  padding:36px 46px 60px;
+  max-width:1180px;
+}
+.screen{display:none;}
+.screen.active{display:block; animation:fade .25s ease;}
+@keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+/* ---------- NAVEGACIÓN SOLO CON CSS (radios ocultos) ---------- */
+.screen-radio{
+  display:none;
+}
+#r-registro:checked ~ .app #screen-registro,
+#r-huertas:checked ~ .app #screen-huertas,
+#r-calendario:checked ~ .app #screen-calendario,
+#r-actividades:checked ~ .app #screen-actividades,
+#r-foro:checked ~ .app #screen-foro,
+#r-biblioteca:checked ~ .app #screen-biblioteca,
+#r-admin:checked ~ .app #screen-admin{
+  display:block;
+  animation:fade .25s ease;
+}
+#r-registro:checked ~ .app label[for="r-registro"],
+#r-huertas:checked ~ .app label[for="r-huertas"],
+#r-calendario:checked ~ .app label[for="r-calendario"],
+#r-actividades:checked ~ .app label[for="r-actividades"],
+#r-foro:checked ~ .app label[for="r-foro"],
+#r-biblioteca:checked ~ .app label[for="r-biblioteca"],
+#r-admin:checked ~ .app label[for="r-admin"]{
+  opacity:1;
+  background:rgba(255,255,255,0.06);
+  border-left:3px solid var(--sun);
+  font-weight:600;
+}
+
+.screen-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  margin-bottom:28px;
+  border-bottom:1px solid var(--line);
+  padding-bottom:18px;
+}
+.screen-head h1{font-size:30px;}
+.screen-head p{margin:6px 0 0; color:var(--soil-light); font-size:14.5px; max-width:520px;}
+
+.btn{
+  font-family:'Work Sans',sans-serif;
+  font-weight:600;
+  font-size:13.5px;
+  padding:10px 18px;
+  border-radius:3px;
+  border:1.5px solid var(--soil);
+  background:transparent;
+  color:var(--soil);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.btn-solid{background:var(--leaf); border-color:var(--leaf); color:#fff;}
+.btn-solid:hover{background:var(--leaf-deep);}
+.btn-tomato{background:var(--tomato); border-color:var(--tomato); color:#fff;}
+.btn-ghost{border-color:var(--line); color:var(--soil-light);}
+.btn-sm{padding:6px 12px; font-size:12.5px;}
+
+/* ---------- REGISTRO / LOGIN ---------- */
+.auth-wrap{
+  display:flex;
+  gap:46px;
+  align-items:flex-start;
+}
+.seed-card{
+  background:var(--card);
+  border:1.5px solid var(--soil);
+  border-radius:4px;
+  padding:34px 32px;
+  width:380px;
+  position:relative;
+}
+.seed-card::before{
+  content:"";
+  position:absolute; inset:8px;
+  border:1px dashed var(--line);
+  pointer-events:none;
+  border-radius:2px;
+}
+.seed-tag{
+  display:inline-block;
+  font-size:11px;
+  letter-spacing:.03em;
+  background:var(--sun);
+  color:var(--soil);
+  padding:3px 9px;
+  border-radius:2px;
+  font-weight:600;
+  margin-bottom:14px;
+}
+.field{margin-bottom:16px;}
+.field label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--soil-light);
+  margin-bottom:5px;
+}
+.field input, .field select, .field textarea{
+  width:100%;
+  padding:10px 12px;
+  border:1.5px solid var(--line);
+  border-radius:3px;
+  background:#fff;
+  font-family:'Work Sans',sans-serif;
+  font-size:14px;
+  color:var(--ink);
+}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:2px solid var(--leaf);
+  outline-offset:1px;
+  border-color:var(--leaf);
+}
+.auth-toggle{
+  display:flex; gap:0; margin-bottom:22px;
+  border:1.5px solid var(--soil); border-radius:3px; overflow:hidden;
+}
+.auth-toggle div{
+  flex:1; text-align:center; padding:9px; font-size:13px; font-weight:600;
+  cursor:pointer; color:var(--soil-light);
+}
+.auth-toggle div.active{background:var(--soil); color:#fff;}
+.role-pick{display:flex; gap:8px; margin-bottom:18px;}
+.role-pick label{
+  flex:1; border:1.5px solid var(--line); border-radius:3px; padding:10px 8px;
+  text-align:center; font-size:12.5px; cursor:pointer; color:var(--soil-light);
+}
+.role-pick input{display:none;}
+.role-pick input:checked + span{color:var(--leaf-deep); font-weight:700;}
+.role-pick label:has(input:checked){border-color:var(--leaf); background:var(--leaf-pale);}
+
+.auth-side{max-width:360px; padding-top:14px;}
+.auth-side h2{font-size:22px; margin-bottom:12px;}
+.auth-side ul{padding-left:18px; margin:0; color:var(--soil-light); font-size:14px; line-height:1.9;}
+
+/* ---------- HUERTAS ---------- */
+.huertas-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:20px;
+}
+.huerta-card{
+  background:var(--card);
+  border:1.5px solid var(--line);
+  border-radius:4px;
+  overflow:hidden;
+}
+.huerta-banner{
+  height:80px;
+  display:flex; align-items:flex-end;
+  padding:10px 14px;
+  font-family:'Fraunces',serif;
+  color:#fff; font-size:15px; font-weight:600;
+}
+.huerta-body{padding:14px;}
+.huerta-meta{font-size:12.5px; color:var(--soil-light); margin-bottom:10px; line-height:1.7;}
+.tag-row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+.tag{
+  font-size:11px; padding:3px 8px; border-radius:20px;
+  background:var(--leaf-pale); color:var(--leaf-deep); font-weight:600;
+}
+.huerta-card .btn{width:100%;}
+.new-huerta-card{
+  border:2px dashed var(--line);
+  border-radius:4px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  color:var(--soil-light); cursor:pointer; min-height:210px; gap:8px; font-size:13.5px; font-weight:600;
+  background:transparent;
+}
+.new-huerta-card .plus{font-size:30px; line-height:1;}
+
+/* ---------- CALENDARIO ---------- */
+.cal-layout{display:flex; gap:28px; align-items:flex-start;}
+.cal-grid{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  border:1.5px solid var(--line);
+  border-radius:4px;
+  overflow:hidden;
+}
+.cal-dow{
+  background:var(--soil); color:var(--paper);
+  text-align:center; font-size:11px; font-weight:700; padding:8px 0;
+}
+.cal-cell{
+  min-height:84px;
+  border-right:1px solid var(--line);
+  border-top:1px solid var(--line);
+  padding:6px;
+  background:var(--card);
+  font-size:11.5px;
+}
+.cal-cell .num{color:var(--soil-light); font-weight:600; margin-bottom:4px;}
+.cal-evt{
+  font-size:10.5px; padding:2px 5px; border-radius:2px; margin-bottom:3px;
+  font-weight:600; color:#fff;
+}
+.evt-siembra{background:var(--leaf);}
+.evt-cosecha{background:var(--tomato);}
+.cal-side{width:230px;}
+.cal-side h3{font-size:14px; margin-bottom:10px;}
+.legend{display:flex; gap:14px; margin-bottom:20px; font-size:12px; color:var(--soil-light);}
+.legend span{display:inline-flex; align-items:center; gap:6px;}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.upcoming{
+  background:var(--card); border:1px solid var(--line); border-radius:4px; padding:10px 12px; margin-bottom:8px; font-size:12.5px;
+}
+.upcoming b{display:block; color:var(--soil); font-size:13px;}
+
+/* ---------- ACTIVIDADES ---------- */
+.act-form{
+  background:var(--card); border:1.5px solid var(--line); border-radius:4px;
+  padding:18px 20px; margin-bottom:26px;
+}
+.act-form-row{display:flex; gap:12px;}
+.act-form-row .field{flex:1;}
+.feed-item{
+  display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--line);
+}
+.feed-avatar{
+  width:38px;height:38px;border-radius:50%;
+  background:var(--leaf-pale); color:var(--leaf-deep);
+  display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;
+}
+.feed-item b{color:var(--soil);}
+.feed-time{font-size:11.5px; color:var(--soil-light); margin-top:2px;}
+.feed-desc{margin-top:6px; font-size:13.5px; color:var(--ink);}
+
+/* ---------- FORO ---------- */
+.forum-list{display:flex; flex-direction:column; gap:0;}
+.thread{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px 4px; border-bottom:1px solid var(--line); cursor:pointer;
+}
+.thread:hover{background:rgba(78,107,62,0.05);}
+.thread-title{font-weight:600; color:var(--soil); font-size:14.5px;}
+.thread-meta{font-size:12px; color:var(--soil-light); margin-top:4px;}
+.thread-stats{text-align:right; font-size:12px; color:var(--soil-light); min-width:70px;}
+.thread-stats b{display:block; color:var(--leaf-deep); font-size:15px;}
+.reply{
+  border-left:3px solid var(--leaf-pale); padding:10px 0 10px 16px; margin-bottom:4px;
+}
+.reply b{font-size:13px; color:var(--soil);}
+.reply p{margin:4px 0 0; font-size:13.5px;}
+
+/* ---------- BIBLIOTECA ---------- */
+.lib-filters{display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap;}
+.lib-filters .chip{
+  font-size:12.5px; padding:7px 14px; border-radius:20px; border:1.5px solid var(--line);
+  color:var(--soil-light); cursor:pointer; font-weight:600;
+}
+.lib-filters .chip.active{background:var(--soil); border-color:var(--soil); color:#fff;}
+.guide-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:18px;}
+.guide-card{
+  background:var(--card); border:1.5px solid var(--line); border-radius:4px; padding:16px; cursor:pointer;
+}
+.guide-icon{
+  width:34px;height:34px; border-radius:4px; background:var(--sun);
+  display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:12px;
+}
+.guide-card h3{font-size:15px; margin-bottom:6px;}
+.guide-card p{font-size:12.5px; color:var(--soil-light); margin:0;}
+
+/* ---------- ADMIN ---------- */
+.admin-tabs{display:flex; gap:6px; margin-bottom:20px;}
+.admin-tab{
+  padding:9px 16px; border-radius:3px 3px 0 0; font-size:13px; font-weight:600;
+  color:var(--soil-light); cursor:pointer; border:1.5px solid transparent;
+}
+.admin-tab.active{
+  color:var(--soil); background:var(--card); border:1.5px solid var(--line); border-bottom-color:var(--card);
+  position:relative; top:1px;
+}
+.admin-panel{
+  border:1.5px solid var(--line); border-radius:0 4px 4px 4px; background:var(--card); padding:20px;
+}
+table{width:100%; border-collapse:collapse; font-size:13.5px;}
+th{
+  text-align:left; font-size:11.5px; text-transform:none; color:var(--soil-light);
+  padding:8px 10px; border-bottom:1.5px solid var(--soil);
+}
+td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+td input, td select{
+  width:100%; padding:6px 8px; border:1.5px solid var(--line); border-radius:3px; font-size:13px; font-family:'Work Sans',sans-serif;
+  background:#fff;
+}
+.row-actions{display:flex; gap:6px;}
+.icon-btn{
+  border:1.5px solid var(--line); background:#fff; border-radius:3px; width:28px; height:28px;
+  cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; color:var(--soil-light);
+}
+.icon-btn.save{border-color:var(--leaf); color:var(--leaf-deep);}
+.icon-btn.del{border-color:var(--tomato); color:var(--tomato);}
+.badge{font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600;}
+.badge-activo{background:var(--leaf-pale); color:var(--leaf-deep);}
+.badge-pendiente{background:#F1D9A8; color:#7A5416;}
+.admin-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+.toast{
+  position:fixed; bottom:24px; right:24px; background:var(--soil); color:#fff;
+  padding:12px 20px; border-radius:4px; font-size:13.5px; font-weight:600;
+  opacity:0; transform:translateY(8px); transition:.25s; pointer-events:none; z-index:99;
+}
+.toast.show{opacity:1; transform:translateY(0);}

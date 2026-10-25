@@ -35,7 +35,7 @@ export function crearAutor(autor) {
 
 // ---------- Cómics ----------
 
-// GET /api/comics  o  GET /api/comics?autor=...&editorial=...
+// GET /api/comics  o  GET /api/comics?titulo=...&autor=...&editorial=...
 export function listarComics(filtros = {}) {
   const params = new URLSearchParams();
 
@@ -48,10 +48,30 @@ export function listarComics(filtros = {}) {
   return peticion(`/comics${query ? `?${query}` : ""}`);
 }
 
+// GET /api/comics/:id
+export function obtenerComic(id) {
+  return peticion(`/comics/${id}`);
+}
+
 // POST /api/comics
 export function crearComic(comic) {
   return peticion("/comics", {
     method: "POST",
     body: JSON.stringify(comic)
+  });
+}
+
+// PUT /api/comics/:id
+export function actualizarComic(id, datos) {
+  return peticion(`/comics/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(datos)
+  });
+}
+
+// DELETE /api/comics/:id
+export function eliminarComic(id) {
+  return peticion(`/comics/${id}`, {
+    method: "DELETE"
   });
 }
